@@ -1,93 +1,78 @@
-# Flowchart Sistem
+# Flowchart & Diagram Sistem
 
-## Alur Program C/OpenCL
+## Alur Utama Program
 
 ```
 MULAI
-  |
-  v
-Baca bantuan_sosial.csv di CPU
-  |
-  v
-Baca kandidat_gudang.csv di CPU
-  |
-  v
-Hitung bobot tiap titik bantuan
-bobot = Jumlah_Penerima * Prioritas
-  |
-  v
-Pilih device GPU OpenCL
-  |
-  v
-Buat buffer GPU
-  |
-  v
-Kirim data ke GPU
-  |
-  v
-Compile kernel OpenCL
-  |
-  v
-Jalankan kernel:
-1 work-item = 1 kandidat gudang
-  |
-  v
-Ambil skor dari GPU ke CPU
-  |
-  v
-Cari skor paling kecil
-  |
-  v
-Tampilkan gudang terbaik
-  |
-  v
-Simpan ranking_final.csv
-  |
-  v
-SELESAI
+  │
+  ▼
+Baca bantuan_sosial.csv     ← 50.000 baris
+Baca kandidat_gudang.csv    ← 1.000 baris
+  │
+  ▼
+Hitung bobot[i] = Penerima[i] × Prioritas[i]
+  │
+  ├──────────────────────────────────────┐
+  │                                      │
+  ▼                                      ▼
+[Sequential]                         [OpenMP]
+for i = 0..999:                      #pragma omp parallel for
+  for j = 0..49999:                  for i = 0..999: (dibagi ke N thread)
+    dist = √(Δlat²+Δlon²)             for j = 0..49999:
+    total += dist × bobot[j]            dist = √(Δlat²+Δlon²)
+  skor_seq[i] = total                   total += dist × bobot[j]
+                                       skor_omp[i] = total
+  │                                      │
+  └───────────────┬──────────────────────┘
+                  │
+                  ▼
+             [OpenCL]
+             Transfer data ke GPU
+             Compile kernel
+             Launch 1.000 work-items (thread GPU)
+               ┌─────────────────────────────────┐
+               │  __kernel hitung_skor:          │
+               │  gid = get_global_id(0)         │
+               │  for j = 0..49999:              │
+               │    dist = native_sqrt(...)      │
+               │    total += dist × bobot[j]     │
+               │  skor_ocl[gid] = total          │
+               └─────────────────────────────────┘
+             Baca hasil dari GPU
+                  │
+                  ▼
+             Cari min(skor) → gudang terbaik
+             Cetak benchmark & top-5
+                  │
+                  ▼
+               SELESAI
 ```
 
 ## Model Eksekusi OpenCL
 
 ```
-GPU work-items
+CPU (Host)                          GPU (Device)
+──────────────────────────────────────────────────
 
-work-item 0    -> Gudang 0    -> loop semua titik bantuan
-work-item 1    -> Gudang 1    -> loop semua titik bantuan
-work-item 2    -> Gudang 2    -> loop semua titik bantuan
-...
-work-item 999  -> Gudang 999  -> loop semua titik bantuan
-```
+Data di RAM:                        Global Memory GPU:
+  g_lat[1000]          ──copy──►    g_lat[1000]
+  g_lon[1000]          ──copy──►    g_lon[1000]
+  b_lat[50000]         ──copy──►    b_lat[50000]
+  b_lon[50000]         ──copy──►    b_lon[50000]
+  b_bobot[50000]       ──copy──►    b_bobot[50000]
+                                    skor[1000]  ← ditulis kernel
 
-## Kernel OpenCL
+Launch kernel: global_size=1024, local_size=64
 
-Bagian inti kernel:
+                                    Workgroup 0 (thread 0–63)
+                                      → proses gudang 0–63
+                                    Workgroup 1 (thread 0–63)
+                                      → proses gudang 64–127
+                                    ...
+                                    Workgroup 15 (thread 0–63)
+                                      → proses gudang 960–999
+                                      (thread 1000–1023: return langsung)
 
-```c
-__kernel void hitung_skor_gudang(
-    __global const float *b_lat,
-    __global const float *b_lon,
-    __global const float *b_weight,
-    __global const float *g_lat,
-    __global const float *g_lon,
-    __global float *scores,
-    const int n_bantuan,
-    const int n_gudang)
-{
-    int gid = get_global_id(0);
-    if (gid >= n_gudang) return;
-
-    float lat_g = g_lat[gid];
-    float lon_g = g_lon[gid];
-    float total = 0.0f;
-
-    for (int i = 0; i < n_bantuan; i++) {
-        float dlat = lat_g - b_lat[i];
-        float dlon = lon_g - b_lon[i];
-        float dist = sqrt(dlat * dlat + dlon * dlon);
-        total += dist * b_weight[i];
-    }
-
-    scores[gid] = total;
-}
+Baca hasil:         skor[1000]  ◄──  skor[1000]
+Cari min(skor) di CPU
 ```

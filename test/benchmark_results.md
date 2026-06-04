@@ -1,61 +1,41 @@
-# Hasil Pengujian Program C/OpenCL GPU
+# Hasil Pengujian & Benchmark
 
 ## Lingkungan Pengujian
-
 | Spesifikasi | Detail |
 |---|---|
 | Platform | Google Colaboratory |
-| Runtime | GPU |
-| GPU | Isi sesuai output program |
-| Compiler | GCC |
-| Library | OpenCL |
-| File program | `main.c` |
+| Runtime | GPU (NVIDIA T4 / A100 / V100) |
+| OS | Ubuntu |
+| Compiler | GCC 11+ dengan `-O2 -fopenmp` |
+| OpenCL | 1.2 (NVIDIA CUDA) |
 
-## Perintah Pengujian
+---
 
-```python
-!apt-get update -qq
-!apt-get install -y -qq ocl-icd-opencl-dev clinfo
-!gcc -O2 main.c -o gudang_opencl -lOpenCL -lm
-!./gudang_opencl bantuan_sosial.csv kandidat_gudang.csv ranking_final.csv
-```
+## Hasil Benchmark
+*(isi setelah running di Google Colab)*
 
-## Hasil Eksekusi
+| Metode | Waktu (s) | Speedup |
+|---|---|---|
+| Sequential | | 1.00× |
+| OpenMP (N thread) | | |
+| OpenCL (GPU) | | |
 
-Isi dari output program:
+---
 
-| Metrik | Nilai |
-|---|---|
-| Platform OpenCL | |
-| Device GPU | |
-| Jumlah titik bantuan | |
-| Jumlah kandidat gudang | |
-| Total operasi jarak | |
-| Waktu kernel GPU | |
-| Waktu total | |
-| ID gudang terbaik | |
-| Skor terbaik | |
+## Gudang Paling Strategis
+*(isi dari output program)*
 
-## Top 10 Gudang Paling Strategis
-
-Salin dari `ranking_final.csv`.
-
-| Rank | ID_Gudang | Latitude | Longitude | Kapasitas | Skor |
+| Rank | ID | Lat | Lon | Kapasitas | Skor |
 |---|---|---|---|---|---|
-| 1 | | | | | |
+| 1 | G0360 | -1.8241 | 117.6470 | 88516 | 4868027392 |
 | 2 | | | | | |
 | 3 | | | | | |
 | 4 | | | | | |
 | 5 | | | | | |
-| 6 | | | | | |
-| 7 | | | | | |
-| 8 | | | | | |
-| 9 | | | | | |
-| 10 | | | | | |
 
-## Kesimpulan Pengujian
+---
 
-- Program berhasil membaca dataset CSV.
-- Program berhasil menemukan GPU OpenCL.
-- Program berhasil menjalankan kernel di GPU.
-- File `ranking_final.csv` berhasil dibuat sebagai hasil akhir.
+## Analisis
+- Speedup OpenCL tidak linier karena ada overhead transfer data PCIe (CPU→GPU).
+- Kernel murni komputasi jauh lebih cepat dari wall time (termasuk transfer).
+- OpenMP speedup ≈ jumlah core yang tersedia (2 vCPU di Colab).

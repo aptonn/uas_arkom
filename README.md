@@ -1,133 +1,73 @@
-# Pencarian Lokasi Strategis Gudang Logistik
+# Akselerasi Pencarian Lokasi Strategis Gudang Logistik Bantuan Sosial
+## Brute-Force Euclidean Distance: Sequential | OpenMP | OpenCL
 
-Program ini menggunakan bahasa C dengan OpenCL untuk menjalankan perhitungan di GPU. Google Colab dipakai sebagai tempat compile dan run program.
+---
 
-## File Utama
+## Nama Penyusun
+*(isi nama anggota kelompok)*
 
+---
+
+## Deskripsi Proyek
+
+Proyek ini mencari lokasi gudang logistik **paling strategis** dari 1.000 kandidat lokasi, dievaluasi terhadap 50.000 titik penerima bantuan sosial menggunakan algoritma brute-force jarak Euclidean dengan akselerasi GPU via OpenCL.
+
+**Formula skor:**
 ```
-src/main.c
+Skor(G) = Σ [ √((Glat−Blat)² + (Glon−Blon)²) × Jumlah_Penerima × Prioritas ]
 ```
+Gudang dengan skor terkecil = paling strategis.
 
-Kernel OpenCL sudah ditanam langsung di dalam `main.c`, jadi tidak perlu file `.cl` terpisah.
+**Fitur:**
+- Implementasi **Sequential** (baseline CPU single-thread)
+- Implementasi **OpenMP** (CPU multi-thread, `#pragma omp parallel for`)
+- Implementasi **OpenCL** (GPU paralel, 1 work-item per gudang)
+- Benchmark otomatis: waktu & speedup ketiga metode
+- Validasi konsistensi hasil antara ketiga metode
+- Tampilkan top-5 gudang paling strategis
 
-## Rumus
-
-```
-Skor(G) = sum sqrt((Glat - Blat)^2 + (Glon - Blon)^2) * Jumlah_Penerima * Prioritas
-```
-
-Gudang dengan skor paling kecil adalah gudang paling strategis.
-
-## Input
-
-Program membutuhkan dua file CSV:
-
-1. `bantuan_sosial.csv`
-
-```csv
-ID_Bantuan,Latitude,Longitude,Jumlah_Penerima,Prioritas
-B00001,-7.390235,123.875466,3893,4
-```
-
-2. `kandidat_gudang.csv`
-
-```csv
-ID_Gudang,Latitude,Longitude,Kapasitas
-G0001,-1.831314,102.332957,93697
-```
+---
 
 ## Cara Menjalankan di Google Colab
 
-Aktifkan GPU dulu:
+**1. Ubah runtime ke GPU:**
+Runtime → Change runtime type → **GPU**
 
-```
-Runtime -> Change runtime type -> GPU
-```
-
-Upload file:
-
+**2. Upload file ke Colab:**
 ```python
 from google.colab import files
 files.upload()
+# Upload: main.c, bantuan_sosial.csv, kandidat_gudang.csv
 ```
 
-Upload tiga file:
-
-- `main.c`
-- `bantuan_sosial.csv`
-- `kandidat_gudang.csv`
-
-Install header/library OpenCL:
-
-```python
-!apt-get update -qq
-!apt-get install -y -qq ocl-icd-opencl-dev clinfo
+**3. Install OpenCL headers & compile:**
+```bash
+!apt-get install -y opencl-headers ocl-icd-opencl-dev -q
+!gcc -O2 -fopenmp main.c -o gudang -lOpenCL -lm
 ```
 
-Cek apakah GPU OpenCL terbaca:
-
-```python
-!clinfo | grep -E "Platform Name|Device Name|Device Type" | head -20
+**4. Jalankan:**
+```bash
+!./gudang bantuan_sosial.csv kandidat_gudang.csv
 ```
 
-Compile:
+> Jika tidak ada GPU (CPU runtime), tambahkan dulu:
+> `!apt-get install -y pocl-opencl-icd -q`
 
-```python
-!gcc -O2 main.c -o gudang_opencl -lOpenCL -lm
+---
+
+## Struktur Repository
+```
+src/main.c                  ← satu file C (semua implementasi)
+docs/laporan.md             ← laporan singkat
+docs/flowchart.md           ← diagram sistem
+docs/input_output.md        ← dokumentasi I/O
+test/benchmark_results.md   ← hasil pengujian
+data/bantuan_sosial.csv     ← dataset penerima bantuan (50.000 baris)
+data/kandidat_gudang.csv    ← dataset kandidat gudang (1.000 baris)
 ```
 
-Jalankan:
+---
 
-```python
-!./gudang_opencl bantuan_sosial.csv kandidat_gudang.csv ranking_final.csv
-```
-
-Download hasil:
-
-```python
-from google.colab import files
-files.download("ranking_final.csv")
-```
-
-## Output
-
-Program menampilkan:
-
-- platform OpenCL
-- device GPU yang digunakan
-- jumlah data yang dibaca
-- waktu kernel GPU
-- waktu total
-- gudang dengan skor terbaik
-- file ranking hasil akhir
-
-File output:
-
-```
-ranking_final.csv
-```
-
-Kolom output:
-
-```csv
-Rank,ID_Gudang,Latitude,Longitude,Kapasitas,Skor_Strategis
-```
-
-## Struktur Folder
-
-```
-.
-├── src/
-│   └── main.c
-├── docs/
-│   ├── flowchart.md
-│   ├── input_output.md
-│   └── laporan.md
-├── test/
-│   └── benchmark_results.md
-└── README.md
-```
-
-## Catatan Penting
-
-Program ini sengaja memilih `CL_DEVICE_TYPE_GPU`. Jika Colab belum memakai runtime GPU atau OpenCL GPU tidak tersedia, program akan berhenti dengan pesan error.
+## Link Video
+*(isi setelah upload ke YouTube)*

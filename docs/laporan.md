@@ -1,125 +1,81 @@
-# Laporan Singkat Proyek UAS Arsitektur dan Sistem Komputer
+# Laporan Singkat — UAS Arsitektur dan Sistem Komputer
 
 ## Judul
+Akselerasi Pencarian Lokasi Strategis Gudang Logistik Bantuan Sosial  
+Menggunakan Algoritma Brute-Force Jarak Euclidean Paralel Berbasis OpenCL
 
-Pencarian Lokasi Strategis Gudang Logistik Bantuan Sosial Menggunakan C dan OpenCL GPU
+---
 
 ## 1. Deskripsi Masalah
 
-Program memilih 1 gudang terbaik dari beberapa kandidat gudang. Setiap kandidat dihitung skornya terhadap semua titik penerima bantuan sosial.
+Terdapat **50.000 titik penerima bantuan sosial** dan **1.000 kandidat gudang logistik**.  
+Tugas: temukan gudang yang paling strategis — paling efisien menjangkau semua penerima.
 
-Gudang dianggap paling strategis jika memiliki total jarak berbobot paling kecil.
-
-Rumus:
-
-```
-Skor(G) = sum sqrt((Glat - Blat)^2 + (Glon - Blon)^2) * Jumlah_Penerima * Prioritas
-```
-
-Keterangan:
-
-- `Glat`, `Glon`: koordinat kandidat gudang
-- `Blat`, `Blon`: koordinat titik bantuan
-- `Jumlah_Penerima`: jumlah penerima bantuan di titik tersebut
-- `Prioritas`: tingkat prioritas bantuan
-
-## 2. Implementasi
-
-Bahasa yang digunakan:
+**Formula skor strategis per gudang G:**
 
 ```
-C + OpenCL
+Skor(G) = Σᵢ [ √((Glat − Blat_i)² + (Glon − Blon_i)²) × Penerima_i × Prioritas_i ]
 ```
 
-File program:
+- Gudang dengan **skor terkecil** = paling strategis.
+- Total komputasi: 1.000 × 50.000 = **50 juta operasi jarak** → ideal untuk GPU.
 
-```
-src/main.c
-```
+---
 
-Program terdiri dari dua bagian:
+## 2. Tiga Metode Komputasi
 
-- Host program C: membaca CSV, menyiapkan buffer OpenCL, menjalankan kernel, menyimpan ranking.
-- Kernel OpenCL: menghitung skor setiap kandidat gudang di GPU.
+| Metode | Hardware | Cara Kerja |
+|---|---|---|
+| Sequential | 1 CPU core | Loop gudang satu per satu |
+| OpenMP | Multi-core CPU | `#pragma omp parallel for` — loop gudang dibagi ke semua core |
+| OpenCL | GPU (ribuan core) | 1 work-item = 1 gudang, semua jalan bersamaan |
 
-Kernel OpenCL ditanam langsung sebagai string di dalam `main.c`, sehingga pengguna hanya perlu compile satu file C.
+---
 
-## 3. Strategi Paralel GPU
+## 3. Desain Keputusan OpenCL
 
-Satu work-item OpenCL menangani satu kandidat gudang.
+- **Granularitas**: 1 work-item per gudang. 1.000 work-item berjalan serentak.
+- **Workgroup size = 64**: kelipatan 32 (warp NVIDIA), umum digunakan untuk NVIDIA GPU di Colab.
+- **Guard di kernel**: `if (gid >= n_gudang) return;` — karena global_size dibulatkan ke atas.
+- **`native_sqrt`**: lebih cepat dari `sqrt` standar di GPU, akurasi float32 sudah cukup untuk koordinat.
+- **Float32**: throughput GPU untuk float32 jauh lebih tinggi dari float64.
 
-```
-work-item 0 -> hitung skor gudang 0
-work-item 1 -> hitung skor gudang 1
-work-item 2 -> hitung skor gudang 2
-...
-```
+---
 
-Setiap work-item melakukan loop ke seluruh titik bantuan:
+## 4. Mengapa Speedup Tidak Linier?
 
-```c
-for (int i = 0; i < n_bantuan; i++) {
-    float dlat = lat_g - b_lat[i];
-    float dlon = lon_g - b_lon[i];
-    float dist = sqrt(dlat * dlat + dlon * dlon);
-    total += dist * b_weight[i];
-}
-```
+Sesuai **Hukum Amdahl**: bagian serial membatasi speedup maksimum.
 
-Karena skor antar gudang tidak saling bergantung, proses ini cocok dijalankan secara paralel di GPU.
+Bagian yang tidak bisa diparalelkan:
+1. Baca CSV → sekuensial
+2. Transfer data CPU → GPU (PCIe bottleneck)
+3. Cari minimum skor → sekuensial kecil
 
-## 4. Input
+Faktor lain:
+- **Memory bottleneck**: 50.000 titik bantuan harus dibaca ulang oleh setiap work-item (tidak di-cache secara lokal).
+- **Kernel launch overhead**: ada latency saat GPU "menyalakan" ribuan thread.
 
-Program membaca dua file CSV:
+---
 
-- `bantuan_sosial.csv`
-- `kandidat_gudang.csv`
+## 5. Dataset
 
-Format detail ada di [input_output.md](input_output.md).
+| File | Baris | Kolom |
+|---|---|---|
+| `bantuan_sosial.csv` | 50.000 | ID, Latitude, Longitude, Jumlah_Penerima, Prioritas |
+| `kandidat_gudang.csv` | 1.000 | ID, Latitude, Longitude, Kapasitas |
 
-## 5. Output
+Sebaran koordinat: Indonesia (Lat ≈ −11° s/d +6°, Lon ≈ +95° s/d +141°).
 
-Program menghasilkan file:
+---
 
-```
-ranking_final.csv
-```
+## 6. Hasil Pengujian
 
-Isi file adalah ranking gudang dari skor terkecil sampai terbesar. Ranking pertama adalah gudang paling strategis.
+*(isi dari output Google Colab setelah program dijalankan)*
 
-## 6. Cara Menjalankan di Google Colab
+| Metode | Waktu (s) | Speedup |
+|---|---|---|
+| Sequential | | 1.00x |
+| OpenMP | | |
+| OpenCL | | |
 
-Aktifkan GPU:
-
-```
-Runtime -> Change runtime type -> GPU
-```
-
-Install OpenCL:
-
-```python
-!apt-get update -qq
-!apt-get install -y -qq ocl-icd-opencl-dev clinfo
-```
-
-Compile dan jalankan:
-
-```python
-!gcc -O2 main.c -o gudang_opencl -lOpenCL -lm
-!./gudang_opencl bantuan_sosial.csv kandidat_gudang.csv ranking_final.csv
-```
-
-## 7. Kelebihan
-
-- Perhitungan utama berjalan di GPU.
-- Tidak menggunakan OpenMP/CPU parallel.
-- Tetap memakai bahasa C untuk host program.
-- Tidak membutuhkan Python sebagai implementasi algoritma.
-- File kode utama hanya satu: `main.c`.
-
-## 8. Keterbatasan
-
-- Tetap ada proses CPU untuk membaca CSV, membuat buffer, dan menyimpan output.
-- OpenCL runtime harus tersedia di Colab.
-- Jarak Euclidean pada koordinat latitude/longitude bukan jarak geografis paling akurat.
-- Kapasitas gudang hanya ditampilkan, belum dipakai sebagai batas pemilihan.
+**Gudang paling strategis**: G0360 (lat ≈ −1.82, lon ≈ 117.65)
