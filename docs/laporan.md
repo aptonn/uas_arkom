@@ -70,7 +70,6 @@ Sebaran koordinat: Indonesia (Lat ≈ −11° s/d +6°, Lon ≈ +95° s/d +141°
 
 ## 6. Hasil Pengujian
 
-*(isi dari output Google Colab setelah program dijalankan)*
 
 | Metode | Waktu (s) | Speedup |
 |---|---|---|

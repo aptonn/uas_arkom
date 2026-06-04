@@ -12,7 +12,6 @@
 ---
 
 ## Hasil Benchmark
-*(isi setelah running di Google Colab)*
 
 | Metode | Waktu (s) | Speedup |
 |---|---|---|
@@ -23,7 +22,6 @@
 ---
 
 ## Gudang Paling Strategis
-*(isi dari output program)*
 
 | Rank | ID | Lat | Lon | Kapasitas | Skor |
 |---|---|---|---|---|---|
