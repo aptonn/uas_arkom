@@ -4,7 +4,7 @@
 ---
 
 ## Nama Penyusun
-*(isi nama anggota kelompok)*
+*Afton Ilman Firmansyah, Aunal Ghoribi Prasetyo, Sultan Hakim Sukmana*
 
 ---
 
