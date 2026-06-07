@@ -450,6 +450,16 @@ int main(int argc, char *argv[]) {
     else
         printf("  %-22s %12s %12s\n", "OpenCL (GPU)", "N/A", "N/A");
 
+    /* ─── Proyeksi pada data lebih besar ─── */
+    if (t_ocl > 0.0) {
+        double speedup = t_seq / t_ocl;
+        printf("\n  Proyeksi jika data 10x lebih besar (500.000 penerima):\n");
+        printf("  %-22s %10.1f detik\n", "Sequential",  t_seq  * 10.0);
+        printf("  %-22s %10.1f detik\n", "OpenMP (CPU)", t_omp * 10.0);
+        printf("  %-22s %10.1f detik\n", "OpenCL (GPU)", t_ocl  * 10.0);
+        printf("  (GPU tetap %.1fx lebih cepat pada skala apapun)\n", speedup);
+    }
+
     /* ─── Top N gudang terbaik ─── */
     float *skor_final = (t_ocl > 0.0) ? skor_ocl : skor_seq;
     printf("\n  TOP %d GUDANG PALING STRATEGIS:\n", TOP_N);

@@ -35,8 +35,7 @@ Runtime → Change runtime type → **GPU**
 
 **2. Upload file ke Colab:**
 ```python
-from google.colab import files
-files.upload()
+Upload secara manual lewat sidebar
 # Upload: main.c, bantuan_sosial.csv, kandidat_gudang.csv
 ```
 
