@@ -69,4 +69,5 @@ data/kandidat_gudang.csv    ← dataset kandidat gudang (1.000 baris)
 ---
 
 ## Link Video
+https://youtu.be/uQKTD6AMo-s?feature=shared
 
